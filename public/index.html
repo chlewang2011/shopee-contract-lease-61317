@@ -9,12 +9,13 @@
   </head>
   <body>
     <header class="topbar">
-      <div>
+      <div class="brand-block">
+        <span class="eyebrow">ONLINE CONTRACT</span>
         <h1>Shopee店鋪租賃合約</h1>
-        <p>填寫資料後即時產生正式列印版，資料只保存在本機瀏覽器。</p>
+        <p>填寫資料後即時產生正式列印版，個資僅暫存在本機瀏覽器。</p>
       </div>
       <div class="top-actions">
-        <button id="saveBtn" type="button">暫存</button>
+        <button id="saveBtn" type="button">暫存草稿</button>
         <button id="printBtn" type="button">列印 / 存PDF</button>
         <button id="clearBtn" type="button">清空</button>
       </div>
@@ -22,11 +23,15 @@
 
     <main class="layout">
       <section class="panel form-panel" aria-label="合約資料">
-        <div class="section-title">
-          <strong>基本資料</strong>
-          <span id="saveStatus">尚未暫存</span>
+        <div class="panel-head">
+          <div>
+            <span class="eyebrow">FORM</span>
+            <h2>合約資料</h2>
+          </div>
+          <span id="saveStatus" class="save-status">尚未暫存</span>
         </div>
 
+        <div class="section-title"><strong>基本資料</strong></div>
         <div class="grid two">
           <label>甲方姓名<input data-field="partyAName" autocomplete="name" /></label>
           <label>乙方姓名<input data-field="partyBName" autocomplete="name" /></label>
@@ -65,14 +70,17 @@
 
         <label class="check-row">
           <input id="agreeCheck" type="checkbox" />
-          <span>雙方確認已閱讀合約內容，並同意列印後親簽留存。本頁不取代法律審閱。</span>
+          <span>雙方確認已閱讀合約內容，並同意列印後親簽留存。本頁為文件產生工具，不取代法律審閱。</span>
         </label>
       </section>
 
       <section class="panel preview-panel" aria-label="合約預覽">
         <div class="preview-toolbar">
-          <strong>合約預覽</strong>
-          <span>列印時只會輸出白底合約頁</span>
+          <div>
+            <span class="eyebrow">PREVIEW</span>
+            <strong>合約預覽</strong>
+          </div>
+          <span>列印時僅輸出白底正式合約</span>
         </div>
         <article id="contractDoc" class="contract-doc"></article>
       </section>

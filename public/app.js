@@ -41,7 +41,7 @@ function escapeHtml(text) {
 }
 
 function dateText(raw) {
-  if (!raw) return blank("", "short") + " 年 " + blank("", "short") + " 月 " + blank("", "short") + " 日";
+  if (!raw) return `${blank("", "short")} 年 ${blank("", "short")} 月 ${blank("", "short")} 日`;
   const [year, month, day] = raw.split("-");
   return `${blank(year || "", "short")} 年 ${blank(String(Number(month || 0) || ""), "short")} 月 ${blank(String(Number(day || 0) || ""), "short")} 日`;
 }
