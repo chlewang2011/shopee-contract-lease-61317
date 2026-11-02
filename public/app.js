@@ -105,9 +105,14 @@ function collectData() {
   return data;
 }
 
-function saveDraft() {
-  localStorage.setItem(storageKey, JSON.stringify(collectData()));
-  saveStatus.textContent = "已暫存 " + new Date().toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" });
+async function saveDraft() {
+  if (!activeContract) throw new Error('請先新增或開啟合約');
+  const result = await cloudApi('/api/contracts/' + activeContract.id, 'PATCH', { revision:activeContract.revision, data:collectData() });
+  activeContract=result.contract;
+  dirty=false;
+  saveStatus.textContent='已存雲端 '+new Date(activeContract.updatedAt).toLocaleTimeString('zh-TW');
+  cloudStatus.textContent='已儲存到雲端';
+  return result;
 }
 
 function loadDraft() {
@@ -132,32 +137,132 @@ function loadDraft() {
 
 function clearDraft() {
   if (!confirm("確定清空目前填寫資料？")) return;
-  localStorage.removeItem(storageKey);
   for (const field of fields) {
     const input = document.querySelector(`[data-field="${field}"]`);
     if (input) input.value = "";
   }
   agreeCheck.checked = false;
   saveStatus.textContent = "已清空";
+  dirty=true;
   renderContract();
 }
 
-function printContract() {
+async function printContract() {
   if (!agreeCheck.checked) {
     alert("請先勾選已閱讀並同意列印後親簽留存。");
     return;
   }
-  saveDraft();
+  if(activeContract?.status === 'draft') await saveDraft();
   window.print();
 }
 
 document.querySelectorAll("[data-field]").forEach((input) => {
-  input.addEventListener("input", renderContract);
+  input.addEventListener("input", () => { dirty=true; saveStatus.textContent='尚有變更未儲存'; renderContract(); });
 });
-agreeCheck.addEventListener("change", renderContract);
-document.getElementById("saveBtn").addEventListener("click", saveDraft);
-document.getElementById("printBtn").addEventListener("click", printContract);
+agreeCheck.addEventListener("change", () => { dirty=true; renderContract(); });
+document.getElementById("saveBtn").addEventListener("click", () => run(saveDraft));
+document.getElementById("printBtn").addEventListener("click", () => run(printContract));
 document.getElementById("clearBtn").addEventListener("click", clearDraft);
 
-loadDraft();
-renderContract();
+let role='', activeContract=null, dirty=false, busy=false;
+const cloudStatus=document.getElementById('cloudStatus');
+const $=id=>document.getElementById(id);
+const shareToken=new URLSearchParams(location.hash.slice(1)).get('share') || '';
+// Fragments are not sent to the server or included in referrer headers.
+if(shareToken) { $('userLabel').hidden=true; $('loginUser').required=false; $('loginTitle').textContent='合約存取驗證'; $('passwordLabel').firstChild.textContent='驗證碼'; }
+async function cloudApi(path,method='GET',body) {
+  const response=await fetch(path,{method,headers:body ? {'Content-Type':'application/json'} : {},body:body ? JSON.stringify(body) : undefined});
+  const result=await response.json();
+  if(!response.ok) throw new Error(result.message || '操作失敗');
+  return result;
+}
+async function run(fn) {
+  if(busy) return;
+  busy=true; cloudStatus.textContent='處理中…';
+  document.querySelectorAll('[data-field]').forEach(el=>el.disabled=true);
+  try { await fn(); } catch(error) { cloudStatus.textContent=error.message; }
+  finally { busy=false; applyPermissions(); }
+}
+function applyPermissions() {
+  const draft=activeContract?.status==='draft';
+  const allowed=['partyAName','partyAId','partyAPhone','partyAAddress','referrerName','referrerId'];
+  document.querySelectorAll('[data-field]').forEach(el=>el.disabled=!draft || (role!=='admin'&&!allowed.includes(el.dataset.field)));
+  agreeCheck.disabled=!draft;
+  $('saveBtn').disabled=!draft;
+  $('printBtn').disabled=!activeContract;
+  $('clearBtn').hidden=role!=='admin'; $('clearBtn').disabled=!draft;
+  $('submitContractBtn').hidden=!draft;
+  for(const id of ['shareBtn','revokeBtn']) $(id).disabled=!activeContract;
+  $('reopenBtn').disabled=!activeContract || draft;
+  $('completeBtn').disabled=activeContract?.status!=='submitted';
+}
+function openContract(record) {
+  activeContract=record; dirty=false;
+  for(const field of fields) document.querySelector(`[data-field="${field}"]`).value=record.data[field] || '';
+  agreeCheck.checked=record.data.agree===true;
+  $('editor').hidden=false; $('shareResult').hidden=true;
+  saveStatus.textContent=record.status==='draft'?'雲端草稿':record.status==='submitted'?'已提交，待核對':'已核對完成';
+  cloudStatus.textContent=record.title+' · '+saveStatus.textContent;
+  renderContract(); applyPermissions();
+}
+async function refreshList() {
+  const result=await cloudApi('/api/contracts');
+  const select=$('contractSelect'); select.replaceChildren(new Option('選擇合約',''));
+  const labels={draft:'草稿',submitted:'待核對',completed:'已核對'};
+  for(const c of result.contracts) select.add(new Option(`${c.title} · ${labels[c.status] || c.status}`,c.id));
+  select.value=activeContract?.id || '';
+}
+async function entered(me) {
+  role=me.role; $('loginForm').hidden=true; $('logoutBtn').hidden=false; $('adminTools').hidden=role!=='admin';
+  $('loginPassword').value='';
+  if(role==='admin') { await refreshList(); cloudStatus.textContent='已登入，請新增或選擇合約'; }
+  else { const r=me.contract ? me : await cloudApi('/api/contracts/'+me.contractId); openContract(r.contract); }
+}
+$('loginForm').addEventListener('submit',event=>{event.preventDefault();run(async()=>{
+  const me=await cloudApi(shareToken?'/api/access':'/api/login','POST',shareToken?{token:shareToken,code:$('loginPassword').value}:{user:$('loginUser').value,password:$('loginPassword').value});
+  await entered(me);
+});});
+async function createContract(importOld=false) {
+  if(dirty&&!confirm('目前變更尚未儲存，仍要新增合約？'))return;
+  const title=$('contractTitle').value.trim();if(!title)throw new Error('請先填寫合約名稱／對象');
+  let data=Object.fromEntries(fields.map(f=>[f,''])); data.agree=false;
+  if(importOld) {
+    const old=JSON.parse(localStorage.getItem(storageKey) || 'null');
+    if(!old)throw new Error('這個瀏覽器沒有舊草稿');
+    for(const f of fields)data[f]=String(old[f] || '');data.agree=old.agree===true;
+  }
+  const result=await cloudApi('/api/contracts','POST',{title,data});openContract(result.contract);await refreshList();
+}
+$('newContractBtn').addEventListener('click',()=>run(()=>createContract()));
+$('importDraftBtn').addEventListener('click',()=>run(()=>createContract(true)));
+$('contractSelect').addEventListener('change',()=>run(async()=>{
+  const id=$('contractSelect').value;if(!id)return;
+  if(dirty&&!confirm('有尚未儲存的內容，確定切換？')) { $('contractSelect').value=activeContract?.id || '';return; }
+  openContract((await cloudApi('/api/contracts/'+id)).contract);
+}));
+$('refreshCloudBtn').addEventListener('click',()=>run(async()=>{
+  if(dirty&&!confirm('重新載入會捨棄未儲存變更，確定繼續？'))return;
+  await refreshList(); if(activeContract)openContract((await cloudApi('/api/contracts/'+activeContract.id)).contract);
+}));
+async function action(name) {
+  if(!activeContract)return;
+  if(dirty)throw new Error('請先儲存變更');
+  const result=await cloudApi(`/api/contracts/${activeContract.id}/${name}`,'POST',{revision:activeContract.revision});
+  openContract(result.contract);if(role==='admin')await refreshList();return result;
+}
+$('shareBtn').addEventListener('click',()=>run(async()=>{
+  if(!confirm('產生有效期 7 天的新連結？舊連結將立即失效。'))return;
+  const result=await action('share');if(!result)return;
+  $('shareUrl').value=location.origin+'/#share='+result.token;$('shareCode').value=result.code;$('shareResult').hidden=false;
+}));
+$('revokeBtn').addEventListener('click',()=>run(async()=>{if(confirm('立即停用這份合約的分享存取？'))await action('revoke');}));
+$('reopenBtn').addEventListener('click',()=>run(async()=>{if(confirm('重新開放此合約修改？'))await action('reopen');}));
+$('completeBtn').addEventListener('click',()=>run(async()=>{if(confirm('標記資料核對完成？此操作不是電子簽署。'))await action('complete');}));
+$('submitContractBtn').addEventListener('click',()=>run(async()=>{
+  if(!confirm('提交後將鎖定內容，需管理員重新開放才能修改。確定提交？'))return;
+  if(dirty)await saveDraft();await action('submit');
+}));
+$('logoutBtn').addEventListener('click',()=>run(async()=>{if(dirty&&!confirm('尚有變更未儲存，確定登出？'))return;await cloudApi('/api/logout','POST',{});dirty=false;location.reload();}));
+window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
+applyPermissions();
+if(!shareToken) cloudApi('/api/me').then(entered).catch(()=>{});

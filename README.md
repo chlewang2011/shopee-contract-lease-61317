@@ -1,6 +1,20 @@
 # Shopee 店鋪租賃合約線上版
 
-這是一個不儲存個資到伺服器的線上合約填寫頁。使用者填寫的甲方、乙方、身分證、電話、地址等資料只保存在該瀏覽器的 localStorage；按「列印 / 存PDF」後可用瀏覽器列印或另存 PDF。
+新版資料存於 Supabase Postgres 的 `contract_private` 私有 schema，不再將新合約個資寫入 localStorage。舊草稿可登入管理端後手動匯入。
+
+## 雲端管理設定
+
+Render 必須設定 `DATABASE_URL`、`CONTRACT_ADMIN_USER`、`CONTRACT_ADMIN_PASSWORD_HASH`（由 cloud.mjs 的 passwordHash 產生）、`APP_ORIGIN`（正式網址）。缺少設定時雲端 API 回傳 503，不會假裝存檔成功。
+
+`supabase-ca.crt` 是從 https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt 下載的官方公開 CA。資料庫連線驗證 CA 與主機名稱。
+
+管理員新增合約並儲存後可產生 7 天有效的分享連結。簽約人需同時持有連結和驗證碼，且只能修改甲方及推薦人資料。提交後鎖定，管理員可重新開放或核對完成。重新產生連結及停用分享會立即撤銷舊連結和既有簽約人 session。
+
+登入 cookie 為 HttpOnly、Secure、SameSite=Strict，8 小時到期。密碼只保存 scrypt hash。管理員更改密碼後應清除既有 admin sessions。私有 schema 不對 Supabase 公開 API 開放。並行修改使用 revision 防止覆蓋，history 保留修改紀錄。
+
+「核對完成」不是電子簽章或實名驗證，正式合約仍需列印親簽。雲端存檔不等於完整備份，請另行規劃保留與備份政策。
+
+驗證：`npm run check`。使用測試環境變數後執行 `node --env-file=.env.local --test cloud.test.mjs`，會建立並清理本輪假資料，測試持久化、隔離、欄位權限、版本衝突、鎖定及撤銷。沒有 DATABASE_URL 時會跳過整合測試。
 
 ## 本機預覽
 

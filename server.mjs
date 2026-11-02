@@ -2,11 +2,13 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { makeCloud } from "./cloud.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.join(__dirname, "public");
 const port = Number(process.env.PORT || 4188);
 const version = String(process.env.RENDER_GIT_COMMIT || process.env.APP_VERSION || "local").slice(0, 12);
+const cloud = await makeCloud();
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -19,9 +21,22 @@ const mime = {
 };
 
 const server = http.createServer(async (req, res) => {
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
   const url = new URL(req.url, `http://${req.headers.host}`);
   if (url.pathname === "/healthz") return sendJson(res, 200, { success: true });
   if (url.pathname === "/api/version") return sendJson(res, 200, { success: true, version });
+  if (url.pathname.startsWith('/api/')) {
+    res.setHeader('Cache-Control','no-store');
+    try {
+      if(!cloud) return sendJson(res,503,{success:false,message:'雲端儲存尚未完成設定，請聯絡管理員'});
+      return sendJson(res,200,await cloud.handle(req,res,url));
+    } catch(error) {
+      return sendJson(res,error.status || 500,{success:false,message:error.status ? error.message : '雲端儲存暫時失敗，資料尚未儲存，請稍後重試'});
+    }
+  }
   await serveStatic(res, url.pathname, url.searchParams);
 });
 

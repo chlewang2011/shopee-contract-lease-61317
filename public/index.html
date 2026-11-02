@@ -12,16 +12,43 @@
       <div class="brand-block">
         <span class="eyebrow">ONLINE CONTRACT</span>
         <h1>Shopee店鋪租賃合約</h1>
-        <p>填寫資料後即時產生正式列印版，個資僅暫存在本機瀏覽器。</p>
+        <p>雲端合約管理</p>
       </div>
       <div class="top-actions">
-        <button id="saveBtn" type="button">暫存草稿</button>
+        <button id="saveBtn" type="button" disabled>儲存到雲端</button>
         <button id="printBtn" type="button">列印 / 存PDF</button>
-        <button id="clearBtn" type="button">清空</button>
+        <button id="clearBtn" type="button" hidden>清空未儲存欄位</button>
+        <button id="logoutBtn" type="button" hidden>登出</button>
       </div>
     </header>
 
-    <main class="layout">
+    <section class="cloud-bar">
+      <form id="loginForm">
+        <h2 id="loginTitle">管理員登入</h2>
+        <label id="userLabel">帳號<input id="loginUser" autocomplete="username" required /></label>
+        <label id="passwordLabel">密碼<input id="loginPassword" type="password" autocomplete="current-password" required /></label>
+        <button type="submit">登入</button>
+      </form>
+      <div id="adminTools" hidden>
+        <label>合約名稱／對象<input id="contractTitle" maxlength="120" placeholder="例如：王先生－2026 年度" /></label>
+        <button id="newContractBtn">新增合約</button>
+        <button id="importDraftBtn">匯入舊本機草稿</button>
+        <label>雲端合約<select id="contractSelect"><option value="">選擇合約</option></select></label>
+        <button id="refreshCloudBtn">重新載入</button>
+        <button id="shareBtn" disabled>產生分享連結</button>
+        <button id="revokeBtn" disabled>停用分享</button>
+        <button id="reopenBtn" disabled>重新開放修改</button>
+        <button id="completeBtn" disabled>核對完成</button>
+      </div>
+      <div id="shareResult" hidden>
+        <label>專屬連結<input id="shareUrl" readonly /></label>
+        <label>驗證碼<input id="shareCode" readonly /></label>
+        <p>連結 7 天後到期。請將驗證碼與連結分開傳送；重新產生會停用舊連結。</p>
+      </div>
+      <p id="cloudStatus" role="status" aria-live="polite">請先登入</p>
+      <button id="submitContractBtn" hidden>提交核對並鎖定</button>
+    </section>
+    <main class="layout" id="editor" hidden>
       <section class="panel form-panel" aria-label="合約資料">
         <div class="panel-head">
           <div>

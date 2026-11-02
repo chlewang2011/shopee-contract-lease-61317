@@ -17,6 +17,17 @@
 * {
   box-sizing: border-box;
 }
+[hidden] { display: none !important; }
+.cloud-bar { padding: 20px 28px; background: #fff; border-bottom: 1px solid var(--line); }
+.cloud-bar form, #adminTools { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.cloud-bar label { display: grid; gap: 5px; min-width: 160px; max-width: 100%; }
+.cloud-bar input, .cloud-bar select { min-height: 40px; padding: 8px; border: 1px solid var(--line); border-radius: 4px; max-width: 100%; }
+#contractSelect { max-width: 380px; }
+#shareResult { margin-top: 16px; display: grid; gap: 10px; }
+#cloudStatus { color: var(--brand-dark); overflow-wrap: anywhere; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 600px) { .cloud-bar { padding: 16px; } .cloud-bar label { width: 100%; } #contractSelect { width: 100%; } }
+@media print { .cloud-bar { display: none !important; } }
 
 body {
   margin: 0;
