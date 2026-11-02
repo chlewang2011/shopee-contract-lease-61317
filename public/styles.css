@@ -426,3 +426,9 @@ input:focus {
     margin: 16mm 14mm;
   }
 }
+[hidden] { display: none !important; }
+#signatureCanvas { display:block; width:100%; aspect-ratio: 5 / 2; border:1px solid #94a3b8; background:#fff; touch-action:none; border-radius:4px; }
+#clearSignatureBtn { margin-top:8px; }
+.signed-proof { break-inside:avoid; margin-top:16px; }
+.signed-proof img { display:block; width:280px; max-width:100%; aspect-ratio:5 / 2; object-fit:contain; }
+.signed-proof small { display:block; overflow-wrap:anywhere; font-size:10px; }

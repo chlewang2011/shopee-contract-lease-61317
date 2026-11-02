@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Shopee店鋪租賃合約</title>
     <link rel="stylesheet" href="/styles.css" />
+    <script defer src="/signature-pad.js"></script>
+    <script defer src="/signature.js"></script>
     <script defer src="/app.js"></script>
   </head>
   <body>
@@ -46,7 +48,6 @@
         <p>連結 7 天後到期。請將驗證碼與連結分開傳送；重新產生會停用舊連結。</p>
       </div>
       <p id="cloudStatus" role="status" aria-live="polite">請先登入</p>
-      <button id="submitContractBtn" hidden>提交核對並鎖定</button>
     </section>
     <main class="layout" id="editor" hidden>
       <section class="panel form-panel" aria-label="合約資料">
@@ -95,10 +96,16 @@
           <label>日<input data-field="signDay" inputmode="numeric" /></label>
         </div>
 
-        <label class="check-row">
-          <input id="agreeCheck" type="checkbox" />
-          <span>雙方確認已閱讀合約內容，並同意列印後親簽留存。本頁為文件產生工具，不取代法律審閱。</span>
+        <section id="signatureSection" hidden>
+          <div class="section-title"><strong>乙方手寫簽名</strong></div>
+          <canvas id="signatureCanvas" aria-label="乙方手寫簽名板"></canvas>
+          <button id="clearSignatureBtn" type="button" title="清除簽名">清除簽名</button>
+        </section>
+        <label class="check-row" id="consentRow">
+            <input id="agreeCheck" type="checkbox" />
+          <span>乙方確認已閱讀並同意本合約內容，以本次手寫簽名簽署。</span>
         </label>
+        <button id="submitContractBtn" type="button" hidden>簽署並提交</button>
       </section>
 
       <section class="panel preview-panel" aria-label="合約預覽">

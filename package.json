@@ -9,6 +9,7 @@
     "test": "node --test cloud.test.mjs"
   },
   "dependencies": {
-    "pg": "8.23.0"
+    "pg": "8.23.0",
+    "signature_pad": "5.1.3"
   }
 }

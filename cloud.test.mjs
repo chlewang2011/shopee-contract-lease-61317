@@ -4,7 +4,12 @@ import http from 'node:http';
 import pg from 'pg';
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { makeCloud, fields, passwordHash, passwordMatches, cleanData } from './cloud.mjs';
+import { makeCloud, fields, passwordHash, passwordMatches, cleanData, cleanSignature } from './cloud.mjs';
+const strokes=[[[0.1,0.2],[0.2,0.4],[0.3,0.1],[0.5,0.3],[0.7,0.4]]];
+test('signature bounds and blank rejection',()=>{
+  assert.deepEqual(cleanSignature(strokes),strokes);
+  for(const s of [[],[[[0,0]]],[[[0,0],[2,1]]],[[[0,0],[0,0],[0,0],[0,0],[0,0]]]])assert.throws(()=>cleanSignature(s),{status:400});
+});
 
 test('password hashes and data allowlist',()=>{
   const hash=passwordHash('test-secret');
@@ -45,17 +50,25 @@ test('cloud persistence, access isolation, locks, conflicts and revocation',{ski
     await request(`/api/contracts/${b.id}`,'GET',null,signer,403);
     await request(`/api/contracts/${b.id}`,'PATCH',{revision:b.revision,data},signer,403);
     await request(`/api/contracts/${a.id}/share`,'POST',{revision:a.revision},signer,403);
-    a=(await request(`/api/contracts/${a.id}`,'PATCH',{revision:a.revision,data:{...data,rent:'999',partyAName:'Changed QA'}},signer)).contract;
+    a=(await request(`/api/contracts/${a.id}`,'PATCH',{revision:a.revision,data:{...data,rent:'999',partyAName:'Changed QA',partyBName:'Signer QA',partyBSignature:{signedAt:'fake'}}},signer)).contract;
     assert.equal(a.data.rent,'123');
-    assert.equal(a.data.partyAName,'Changed QA');
+    assert.equal(a.data.partyAName,'QA only');
+    assert.equal(a.data.partyBName,'Signer QA');
+    assert.equal(a.data.partyBSignature,undefined);
     await request(`/api/contracts/${a.id}`,'PATCH',{revision:1,data},admin,409);
-    a=(await request(`/api/contracts/${a.id}/submit`,'POST',{revision:a.revision},signer)).contract;
+    await request(`/api/contracts/${a.id}/submit`,'POST',{revision:a.revision,strokes},admin,403);
+    await request(`/api/contracts/${a.id}/submit`,'POST',{revision:a.revision,strokes:[]},signer,400);
+    a=(await request(`/api/contracts/${a.id}/submit`,'POST',{revision:a.revision,strokes},signer)).contract;
+    assert.deepEqual(a.data.partyBSignature.strokes,strokes);
+    assert.match(a.data.partyBSignature.documentHash,/^[a-f0-9]{64}$/);
     await request(`/api/contracts/${a.id}`,'PATCH',{revision:a.revision,data},signer,409);
     await cloud.close();cloud=await makeCloud(env);
     const persisted=(await request(`/api/contracts/${a.id}`,'GET',null,admin)).contract;
-    assert.equal(persisted.data.partyAName,'Changed QA');assert.equal(persisted.status,'submitted');
+    assert.equal(persisted.data.partyAName,'QA only');assert.equal(persisted.status,'submitted');
+    assert.deepEqual(persisted.data.partyBSignature,a.data.partyBSignature);
     a=(await request(`/api/contracts/${a.id}/reopen`,'POST',{revision:a.revision},admin)).contract;
     assert.equal(a.data.agree,false);
+    assert.equal(a.data.partyBSignature,undefined);
     await request(`/api/contracts/${a.id}/revoke`,'POST',{revision:a.revision},admin);
     await request(`/api/contracts/${a.id}`,'GET',null,signer,403);
     await request('/api/access','POST',{token:share.token,code:share.code},'',401);

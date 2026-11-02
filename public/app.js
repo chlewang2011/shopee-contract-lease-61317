@@ -95,6 +95,14 @@ function renderContract() {
 
     <p class="date-line">中 華 民 國 ${blank(value("rocYear"), "short")} 年 ${blank(value("signMonth"), "short")} 月 ${blank(value("signDay"), "short")} 日</p>
   `;
+  const signature=activeContract?.data.partyBSignature;
+  if(signature) {
+    const proof=document.createElement('section');proof.className='signed-proof';
+    const heading=document.createElement('strong');heading.textContent='乙方手寫簽名';
+    const img=document.createElement('img');img.alt='乙方已提交簽名';img.src=signatureImage(signature.strokes);
+    const detail=document.createElement('small');detail.textContent='簽署時間：'+new Date(signature.signedAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})+' (Asia/Taipei) / SHA-256: '+signature.documentHash;
+    proof.append(heading,img,detail);contractDoc.append(proof);
+  }
 }
 
 function collectData() {
@@ -148,16 +156,12 @@ function clearDraft() {
 }
 
 async function printContract() {
-  if (!agreeCheck.checked) {
-    alert("請先勾選已閱讀並同意列印後親簽留存。");
-    return;
-  }
   if(activeContract?.status === 'draft') await saveDraft();
   window.print();
 }
 
 document.querySelectorAll("[data-field]").forEach((input) => {
-  input.addEventListener("input", () => { dirty=true; saveStatus.textContent='尚有變更未儲存'; renderContract(); });
+  input.addEventListener("input", () => { signatureEditor.clear(); dirty=true; saveStatus.textContent='尚有變更未儲存'; renderContract(); });
 });
 agreeCheck.addEventListener("change", () => { dirty=true; renderContract(); });
 document.getElementById("saveBtn").addEventListener("click", () => run(saveDraft));
@@ -165,6 +169,8 @@ document.getElementById("printBtn").addEventListener("click", () => run(printCon
 document.getElementById("clearBtn").addEventListener("click", clearDraft);
 
 let role='', activeContract=null, dirty=false, busy=false;
+const signatureEditor=createSignatureEditor(document.getElementById('signatureCanvas'),()=>{dirty=true;saveStatus.textContent='簽名尚未提交';});
+document.getElementById('clearSignatureBtn').addEventListener('click',()=>{signatureEditor.clear();dirty=true;});
 const cloudStatus=document.getElementById('cloudStatus');
 const $=id=>document.getElementById(id);
 const shareToken=new URLSearchParams(location.hash.slice(1)).get('share') || '';
@@ -179,24 +185,32 @@ async function cloudApi(path,method='GET',body) {
 async function run(fn) {
   if(busy) return;
   busy=true; cloudStatus.textContent='處理中…';
+  signatureEditor.setEnabled(false);
+  agreeCheck.disabled=true;
+  $('clearSignatureBtn').disabled=true;
   document.querySelectorAll('[data-field]').forEach(el=>el.disabled=true);
   try { await fn(); } catch(error) { cloudStatus.textContent=error.message; }
   finally { busy=false; applyPermissions(); }
 }
 function applyPermissions() {
   const draft=activeContract?.status==='draft';
-  const allowed=['partyAName','partyAId','partyAPhone','partyAAddress','referrerName','referrerId'];
+  const allowed=['partyBName','partyBId','partyBPhone','partyBAddress'];
   document.querySelectorAll('[data-field]').forEach(el=>el.disabled=!draft || (role!=='admin'&&!allowed.includes(el.dataset.field)));
-  agreeCheck.disabled=!draft;
+  agreeCheck.disabled=!draft || role!=='signer';
+  $('consentRow').hidden=role!=='signer';
+  $('signatureSection').hidden=!draft || role!=='signer';
+  signatureEditor.setEnabled(draft && role==='signer' && !busy);
+  $('clearSignatureBtn').disabled=busy || !draft;
   $('saveBtn').disabled=!draft;
   $('printBtn').disabled=!activeContract;
   $('clearBtn').hidden=role!=='admin'; $('clearBtn').disabled=!draft;
-  $('submitContractBtn').hidden=!draft;
+  $('submitContractBtn').hidden=!draft || role!=='signer';
   for(const id of ['shareBtn','revokeBtn']) $(id).disabled=!activeContract;
   $('reopenBtn').disabled=!activeContract || draft;
   $('completeBtn').disabled=activeContract?.status!=='submitted';
 }
 function openContract(record) {
+  signatureEditor.clear();
   activeContract=record; dirty=false;
   for(const field of fields) document.querySelector(`[data-field="${field}"]`).value=record.data[field] || '';
   agreeCheck.checked=record.data.agree===true;
@@ -244,25 +258,29 @@ $('refreshCloudBtn').addEventListener('click',()=>run(async()=>{
   if(dirty&&!confirm('重新載入會捨棄未儲存變更，確定繼續？'))return;
   await refreshList(); if(activeContract)openContract((await cloudApi('/api/contracts/'+activeContract.id)).contract);
 }));
-async function action(name) {
+async function action(name,extra={}) {
   if(!activeContract)return;
   if(dirty)throw new Error('請先儲存變更');
-  const result=await cloudApi(`/api/contracts/${activeContract.id}/${name}`,'POST',{revision:activeContract.revision});
+  const result=await cloudApi(`/api/contracts/${activeContract.id}/${name}`,'POST',{revision:activeContract.revision,...extra});
   openContract(result.contract);if(role==='admin')await refreshList();return result;
 }
 $('shareBtn').addEventListener('click',()=>run(async()=>{
-  if(!confirm('產生有效期 7 天的新連結？舊連結將立即失效。'))return;
+  if(!confirm('產生乙方填寫及簽署連結（有效 7 天）？舊連結將立即失效。'))return;
+  if(dirty)await saveDraft();
   const result=await action('share');if(!result)return;
   $('shareUrl').value=location.origin+'/#share='+result.token;$('shareCode').value=result.code;$('shareResult').hidden=false;
 }));
 $('revokeBtn').addEventListener('click',()=>run(async()=>{if(confirm('立即停用這份合約的分享存取？'))await action('revoke');}));
-$('reopenBtn').addEventListener('click',()=>run(async()=>{if(confirm('重新開放此合約修改？'))await action('reopen');}));
-$('completeBtn').addEventListener('click',()=>run(async()=>{if(confirm('標記資料核對完成？此操作不是電子簽署。'))await action('complete');}));
+$('reopenBtn').addEventListener('click',()=>run(async()=>{if(confirm('重新開放修改後，本版簽名將失效，乙方需要重新簽署。舊簽署紀錄仍保留。確定繼續？'))await action('reopen');}));
+$('completeBtn').addEventListener('click',()=>run(async()=>{if(confirm('標記資料核對完成？'))await action('complete');}));
 $('submitContractBtn').addEventListener('click',()=>run(async()=>{
-  if(!confirm('提交後將鎖定內容，需管理員重新開放才能修改。確定提交？'))return;
-  if(dirty)await saveDraft();await action('submit');
+  if(!agreeCheck.checked)throw new Error('請先勾選簽署同意');
+  const strokes=signatureEditor.strokes();
+  if(!strokes.length)throw new Error('請先完成乙方手寫簽名');
+  if(!confirm('確認以此手寫簽名簽署目前合約？提交後內容將鎖定。'))return;
+  if(dirty)await saveDraft();await action('submit',{strokes});
 }));
 $('logoutBtn').addEventListener('click',()=>run(async()=>{if(dirty&&!confirm('尚有變更未儲存，確定登出？'))return;await cloudApi('/api/logout','POST',{});dirty=false;location.reload();}));
-window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
+window.addEventListener('beforeunload',event=>{if(dirty||signatureEditor.strokes().length){event.preventDefault();event.returnValue='';}});
 applyPermissions();
 if(!shareToken) cloudApi('/api/me').then(entered).catch(()=>{});
