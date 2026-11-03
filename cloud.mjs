@@ -3,9 +3,9 @@ import pg from 'pg';
 import { readFileSync } from 'node:fs';
 
 export const fields = ['partyAName','partyBName','startDate','endDate','rent','storeCount','partyAId','partyAPhone','partyAAddress','referrerName','referrerId','partyBId','partyBPhone','partyBAddress','rocYear','signMonth','signDay'];
-export const signerFields = ['partyBName','partyBId','partyBPhone','partyBAddress'];
+export const signerFields = ['partyAName','partyAId','partyAPhone','partyAAddress','referrerName','referrerId'];
 export function cleanSignature(strokes) {
-  const invalid=()=>{throw Object.assign(new Error('請完成乙方手寫簽名'),{status:400});};
+  const invalid=()=>{throw Object.assign(new Error('請完成甲方手寫簽名'),{status:400});};
   if(!Array.isArray(strokes)||!strokes.length||strokes.length>100)invalid();
   let count=0,length=0;
   const clean=strokes.map(stroke=>{
@@ -148,11 +148,11 @@ export async function makeCloud(env = process.env) {
         r.data={...r.data,...cleanData(b.data,s.role === 'admin' ? fields : signerFields)};
       } else if(action === 'submit') {
         if(r.status !== 'draft') fail(409,'合約已提交');
-        if(s.role !== 'signer') fail(403,'請由乙方開啟專屬連結親自簽署');
+        if(s.role !== 'signer') fail(403,'請由甲方（帳號持有人）開啟專屬連結親自簽署');
         if(!r.data.agree || !r.data.partyAName || !r.data.partyBName) fail(400,'請填寫甲乙方姓名、勾選簽署同意並儲存');
         const strokes=cleanSignature(b.strokes);
         const signedAt=new Date().toISOString();
-        r.data.partyBSignature={strokes,signedAt,documentHash:hash(JSON.stringify(cleanData(r.data))),revision:r.revision+1,consent:'乙方確認已閱讀並同意本合約內容，以本次手寫簽名簽署。'};
+        r.data.partyASignature={strokes,signedAt,documentHash:hash(JSON.stringify(cleanData(r.data))),revision:r.revision+1,consent:'甲方確認已閱讀並同意本合約內容，以本次手寫簽名簽署。'};
         r.status='submitted';
       } else {
         if(s.role !== 'admin') fail(403,'僅管理員可操作');
@@ -165,7 +165,7 @@ export async function makeCloud(env = process.env) {
         if(action === 'revoke') { r.share_hash=null; r.code_hash=null; r.expires_at=null; }
         if(action === 'reopen') {
           await client.query('insert into contract_private.history(contract_id,action,role,data) values($1,$2,$3,$4)',[id,'before_reopen',s.role,r.data]);
-          r.status='draft'; r.data.agree=false; delete r.data.partyBSignature;
+          r.status='draft'; r.data.agree=false; delete r.data.partyASignature; delete r.data.partyBSignature;
         }
         if(action === 'complete') {
           if(r.status !== 'submitted') fail(409,'請先提交核對');

@@ -61,15 +61,15 @@
 
         <div class="section-title"><strong>基本資料</strong></div>
         <div class="grid two">
-          <label>甲方姓名<input data-field="partyAName" autocomplete="name" /></label>
-          <label>乙方姓名<input data-field="partyBName" autocomplete="name" /></label>
+          <label>甲方姓名（帳號持有人／出租方）<input data-field="partyAName" autocomplete="name" /></label>
+          <label>乙方姓名（承租經營方）<input data-field="partyBName" autocomplete="name" /></label>
           <label>租賃開始日<input data-field="startDate" type="date" /></label>
           <label>租賃結束日<input data-field="endDate" type="date" /></label>
           <label>每月租金<input data-field="rent" inputmode="numeric" placeholder="例如 5000" /></label>
           <label>店鋪數量<input data-field="storeCount" inputmode="numeric" placeholder="例如 1" /></label>
         </div>
 
-        <div class="section-title"><strong>甲方資料</strong></div>
+        <div class="section-title"><strong>甲方資料（帳號持有人／出租方）</strong></div>
         <div class="grid two">
           <label>甲方身分證字號<input data-field="partyAId" autocomplete="off" /></label>
           <label>甲方電話<input data-field="partyAPhone" autocomplete="tel" /></label>
@@ -82,7 +82,7 @@
           <label>推薦人身分證字號<input data-field="referrerId" autocomplete="off" /></label>
         </div>
 
-        <div class="section-title"><strong>乙方資料</strong></div>
+        <div class="section-title"><strong>乙方資料（承租經營方）</strong></div>
         <div class="grid two">
           <label>乙方身分證字號<input data-field="partyBId" autocomplete="off" /></label>
           <label>乙方電話<input data-field="partyBPhone" autocomplete="tel" /></label>
@@ -97,13 +97,13 @@
         </div>
 
         <section id="signatureSection" hidden>
-          <div class="section-title"><strong>乙方手寫簽名</strong></div>
-          <canvas id="signatureCanvas" aria-label="乙方手寫簽名板"></canvas>
+          <div class="section-title"><strong>甲方手寫簽名（帳號持有人）</strong></div>
+          <canvas id="signatureCanvas" aria-label="甲方手寫簽名板"></canvas>
           <button id="clearSignatureBtn" type="button" title="清除簽名">清除簽名</button>
         </section>
         <label class="check-row" id="consentRow">
             <input id="agreeCheck" type="checkbox" />
-          <span>乙方確認已閱讀並同意本合約內容，以本次手寫簽名簽署。</span>
+          <span>甲方確認已閱讀並同意本合約內容，以本次手寫簽名簽署。</span>
         </label>
         <button id="submitContractBtn" type="button" hidden>簽署並提交</button>
       </section>

@@ -95,11 +95,12 @@ function renderContract() {
 
     <p class="date-line">中 華 民 國 ${blank(value("rocYear"), "short")} 年 ${blank(value("signMonth"), "short")} 月 ${blank(value("signDay"), "short")} 日</p>
   `;
-  const signature=activeContract?.data.partyBSignature;
+  const signature=activeContract?.data.partyASignature || activeContract?.data.partyBSignature;
+  const signedParty=activeContract?.data.partyASignature?'甲方':'乙方';
   if(signature) {
     const proof=document.createElement('section');proof.className='signed-proof';
-    const heading=document.createElement('strong');heading.textContent='乙方手寫簽名';
-    const img=document.createElement('img');img.alt='乙方已提交簽名';img.src=signatureImage(signature.strokes);
+    const heading=document.createElement('strong');heading.textContent=signedParty+'手寫簽名';
+    const img=document.createElement('img');img.alt=signedParty+'已提交簽名';img.src=signatureImage(signature.strokes);
     const detail=document.createElement('small');detail.textContent='簽署時間：'+new Date(signature.signedAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})+' (Asia/Taipei) / SHA-256: '+signature.documentHash;
     proof.append(heading,img,detail);contractDoc.append(proof);
   }
@@ -194,7 +195,7 @@ async function run(fn) {
 }
 function applyPermissions() {
   const draft=activeContract?.status==='draft';
-  const allowed=['partyBName','partyBId','partyBPhone','partyBAddress'];
+  const allowed=['partyAName','partyAId','partyAPhone','partyAAddress','referrerName','referrerId'];
   document.querySelectorAll('[data-field]').forEach(el=>el.disabled=!draft || (role!=='admin'&&!allowed.includes(el.dataset.field)));
   agreeCheck.disabled=!draft || role!=='signer';
   $('consentRow').hidden=role!=='signer';
@@ -265,18 +266,18 @@ async function action(name,extra={}) {
   openContract(result.contract);if(role==='admin')await refreshList();return result;
 }
 $('shareBtn').addEventListener('click',()=>run(async()=>{
-  if(!confirm('產生乙方填寫及簽署連結（有效 7 天）？舊連結將立即失效。'))return;
+  if(!confirm('產生甲方（帳號持有人）填寫及簽署連結（有效 7 天）？舊連結將立即失效。'))return;
   if(dirty)await saveDraft();
   const result=await action('share');if(!result)return;
   $('shareUrl').value=location.origin+'/#share='+result.token;$('shareCode').value=result.code;$('shareResult').hidden=false;
 }));
 $('revokeBtn').addEventListener('click',()=>run(async()=>{if(confirm('立即停用這份合約的分享存取？'))await action('revoke');}));
-$('reopenBtn').addEventListener('click',()=>run(async()=>{if(confirm('重新開放修改後，本版簽名將失效，乙方需要重新簽署。舊簽署紀錄仍保留。確定繼續？'))await action('reopen');}));
+$('reopenBtn').addEventListener('click',()=>run(async()=>{if(confirm('重新開放修改後，本版簽名將失效，甲方需要重新簽署。舊簽署紀錄仍保留。確定繼續？'))await action('reopen');}));
 $('completeBtn').addEventListener('click',()=>run(async()=>{if(confirm('標記資料核對完成？'))await action('complete');}));
 $('submitContractBtn').addEventListener('click',()=>run(async()=>{
   if(!agreeCheck.checked)throw new Error('請先勾選簽署同意');
   const strokes=signatureEditor.strokes();
-  if(!strokes.length)throw new Error('請先完成乙方手寫簽名');
+  if(!strokes.length)throw new Error('請先完成甲方手寫簽名');
   if(!confirm('確認以此手寫簽名簽署目前合約？提交後內容將鎖定。'))return;
   if(dirty)await saveDraft();await action('submit',{strokes});
 }));

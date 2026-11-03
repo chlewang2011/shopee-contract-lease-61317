@@ -8,7 +8,7 @@ Render 必須設定 `DATABASE_URL`、`CONTRACT_ADMIN_USER`、`CONTRACT_ADMIN_PAS
 
 `supabase-ca.crt` 是從 https://supabase-downloads.s3-ap-southeast-1.amazonaws.com/prod/ssl/prod-ca-2021.crt 下載的官方公開 CA。資料庫連線驗證 CA 與主機名稱。
 
-管理員新增合約並儲存後可產生 7 天有效的分享連結。乙方需同時持有連結和驗證碼，只能修改乙方資料並手寫簽名。提交後鎖定，管理員可重新開放或核對完成。重新產生連結及停用分享會立即撤銷舊連結和既有簽約人 session。
+管理員為乙方（承租經營方），先填寫乙方資料及條款，再產生 7 天有效的分享連結。甲方（帳號持有人／出租方）需同時持有連結和驗證碼，只能修改甲方及推薦人資料並手寫簽名。提交後鎖定，管理員可重新開放或核對完成。重新產生連結及停用分享會立即撤銷舊連結和既有簽約人 session。既有乙方簽名紀錄不會被改名成甲方簽名。
 
 登入 cookie 為 HttpOnly、Secure、SameSite=Strict，8 小時到期。密碼只保存 scrypt hash。管理員更改密碼後應清除既有 admin sessions。私有 schema 不對 Supabase 公開 API 開放。並行修改使用 revision 防止覆蓋，history 保留修改紀錄。
 
@@ -72,10 +72,10 @@ DNS 生效後即可用子域名開啟合約頁。
 ## 注意
 
 這份頁面是線上填寫與列印工具，不是法律審查意見。正式簽署前建議由台灣律師確認條款有效性、個資、稅務與平台帳戶使用風險。
-# Party B handwriting workflow
+# Party A handwriting workflow
 
-The administrator prepares Party A and contract terms. A share recipient can edit
-only Party B name, ID, telephone and address. Signature Pad captures mouse/touch
+The administrator is Party B (tenant) and prepares Party B and contract terms. A share recipient is Party A (account owner) and can edit
+only Party A name, ID, telephone, address and referrer fields. Signature Pad captures mouse/touch
 strokes; submit requires explicit consent, both names and a nonblank signature.
 Only the share recipient can submit. The server stores normalized strokes, UTC
 timestamp, content SHA-256 and revision in the private database. The print view
